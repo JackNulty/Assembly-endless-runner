@@ -1,7 +1,7 @@
 *-----------------------------------------------------------
 * Title      : Endless Runner Starter Kit
-* Written by : Philip Bourke
-* Date       : 25/02/2023
+* Written by : 
+* Date       : 
 * Description: Endless Runner Project Starter Kit
 *-----------------------------------------------------------
     ORG    $1000
@@ -135,11 +135,25 @@ GAME:
     BSR     PLAY_RUN                ; Play Run Wav
 GAMELOOP:
     ; Main Gameloop
+     MOVEQ   #08,D0                  ; Get time in 1/100 seconds
+    TRAP    #15
+
+    MOVE.L  D1,-(SP)                ; Push time on the stack
+
     BSR     INPUT                   ; Check Keyboard Input
     BSR     UPDATE                  ; Update positions and points
     BSR     IS_PLAYER_ON_GND        ; Check if player is on ground
     BSR     CHECK_COLLISIONS        ; Check for Collisions
     BSR     DRAW                    ; Draw the Scene
+    
+    MOVE.L  (SP)+,D7                ; Move stack to D7
+WAIT:
+    MOVEQ   #8,D0                   ; Mve this trap 8 to D0
+    TRAP    #15
+    SUB.L   D7,D1                   ; Subtract previous time from current time
+    CMP.B   #02,D1                  ; Compare the the subtracted time
+    BMI.S   WAIT                    ; Loop if time not up yet
+
     BRA     GAMELOOP                ; Loop back to GameLoop
 
 *-----------------------------------------------------------
@@ -202,7 +216,7 @@ UPDATE:
 * Description   : Move Enemy Right to Left
 *-----------------------------------------------------------
 MOVE_ENEMY:
-    SUB.L   #01,        ENEMY_X     ; Move enemy by X Value
+    SUB.L   #05,        ENEMY_X     ; Move enemy by X Value
     RTS
 
 *-----------------------------------------------------------
@@ -665,6 +679,9 @@ RUN_WAV         DC.B    'run.wav',0         ; Run Sound
 OPPS_WAV        DC.B    'opps.wav',0        ; Collision Opps
 
     END    START        ; last line of source
+
+
+
 *~Font name~Courier New~
 *~Font size~10~
 *~Tab type~1~

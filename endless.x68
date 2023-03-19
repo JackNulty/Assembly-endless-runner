@@ -200,6 +200,9 @@ WAIT:
 * Description   : Process Keyboard Input
 *-----------------------------------------------------------
 INPUT:
+    CLR.L   D0                      ; Clear Data Register
+    CLR.L   D1                      ; Clear Data Register
+    CLR.L   D2                      ; Clear Data Register
     ; Process Input
     CLR.L   D1                      ; Clear Data Register
     MOVE.B  #TC_KEYCODE,D0          ; Listen for Keys
@@ -259,19 +262,27 @@ UPDATE_ENEMY2:
     MOVE.L  ENEMY2_X,    D1          ; Move the Enemy X Position to D0
     CMP.L   #00,        D1
     BLE     RESET_ENEMY2_POSITION    ; Reset Enemy if off Screen
+    
+    CLR.L   D1
+    MOVE.L  ENEMY2_Y,   D1
+    CMP.L   #450,        D1
+    BGE     RESET_ENEMY2_POSITIONY
     BRA     MOVE_ENEMY2              ; Move the Enemy
     
 UPDATE_ENEMY3:
      ; Move the Enemy 3
-    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
-    CLR.L   D1                      ; Clear the contents of D0
+    CLR.L   D1                      ; Clear the contents of D1
     MOVE.L  ENEMY3_X,    D1          ; Move the Enemy X Position to D0
     CMP.L   #00,        D1
     BLE     RESET_ENEMY3_POSITION    ; Reset Enemy if off Screen
+   
+    
+    CLR.L   D1
+    MOVE.L  ENEMY3_Y,   D1
+    CMP.L   #100,        D1
+    BLE     RESET_ENEMY3_POSITIONY
+    
     BRA     MOVE_ENEMY3              ; Move the Enemy
-
-
-
     RTS                             ; Return to subroutine  
 
 *-----------------------------------------------------------
@@ -283,9 +294,12 @@ MOVE_ENEMY:
     RTS
 MOVE_ENEMY2:
     SUB.L   #05,        ENEMY2_X     ; Move enemy by X Value
+    ADD.L   #01,        ENEMY2_Y     ; MOve enemy by y value
     RTS
 MOVE_ENEMY3:
     SUB.L   #05,        ENEMY3_X     ; Move enemy by X Value
+    SUB.L   #01,        ENEMY3_Y     ; MOve enemy by y value
+
     RTS
 
     
@@ -312,6 +326,17 @@ RESET_ENEMY3_POSITION:
     MOVE.L  D1,         ENEMY3_X     ; Enemy X Position
     RTS
 
+RESET_ENEMY2_POSITIONY:
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    MOVE.L  #100,   D1          ; Place Screen width in D1
+    MOVE.L  D1,         ENEMY2_Y     ; Enemy X Position
+    RTS
+
+RESET_ENEMY3_POSITIONY:
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    MOVE.L  #450,   D1          ; Place Screen width in D1
+    MOVE.L  D1,         ENEMY3_Y     ; Enemy X Position
+    RTS
    
     
 
@@ -658,7 +683,7 @@ DRAW_ENEMY:
 *-----------------------------------------------------------
 DRAW_ENEMY2:
     ; Set Pixel Colors
-    MOVE.L  #RED,       D1          ; Set Background color
+    MOVE.L  #GREEN,       D1          ; Set Background color
     MOVE.B  #80,        D0          ; Task for Background Color
     TRAP    #15                     ; Trap (Perform action)
 
@@ -682,7 +707,7 @@ DRAW_ENEMY2:
 *-----------------------------------------------------------
 DRAW_ENEMY3:
     ; Set Pixel Colors
-    MOVE.L  #RED,       D1          ; Set Background color
+    MOVE.L  #BLUE,       D1          ; Set Background color
     MOVE.B  #80,        D0          ; Task for Background Color
     TRAP    #15                     ; Trap (Perform action)
 
@@ -708,33 +733,70 @@ CHECK_COLLISIONS:
     MOVE.L  PLAYER_Y,   D2      ; Get player Y position
     ADD.L   PLYR_W_INIT,     D1      ; Add player width to X position
     ADD.L   PLYR_H_INIT,     D2      ; Add player height to Y position
-    MOVE.L  ENEMY_X,    D3      ; Get enemy X position
-    MOVE.L  ENEMY_Y,    D4      ; Get enemy Y position
-    ADD.L   ENMY1_W_INIT,     D3      ; Add enemy width to X position
-    ADD.L   ENMY1_H_INIT,     D4      ; Add enemy height to Y position
+    MOVE.L  ENEMY2_X,    D3      ; Get enemy X position
+    MOVE.L  ENEMY2_Y,    D4      ; Get enemy Y position
+    ADD.L   ENMY2_W_INIT,     D3      ; Add enemy width to X position
+    ADD.L   ENMY2_H_INIT,     D4      ; Add enemy height to Y position
 
-    CMP.L   D1, D3             ; Check if player right side is to the left of enemy left side
-    BGE     COLLISION_CHECK_1  ; If not, move to next check
-    BRA     COLLISION_CHECK_DONE  ; If so, no collision occurred
+    ; Check if any of the player's corners are within the enemy's boundaries
+    MOVE.L  PLAYER_X,   D5      ; Top-left corner X
+    MOVE.L  PLAYER_Y,   D6      ; Top-left corner Y
+    CMP.L   D5, D3             ; Check if top-left corner X is to the right of enemy left side
+    BGE     CHECK_BOTTOM_LEFT   ; If not, check bottom-left corner
+    CMP.L   D6, D4             ; Check if top-left corner Y is below enemy top
+    BGE     COLLISION_CHECK_DONE  ; If not, no collision occurred
+    BRA     COLLISION_OCCURRED
 
-COLLISION_CHECK_1:
-    CMP.L   D2, D4             ; Check if player bottom is above enemy top
-    BGE     COLLISION_CHECK_2  ; If not, move to next check
-    BRA     COLLISION_CHECK_DONE  ; If so, no collision occurred
+CHECK_BOTTOM_LEFT:
+    MOVE.L  PLAYER_X,   D5      ; Bottom-left corner X
+    ADD.L   #PLYR_H_INIT, D6      ; Bottom-left corner Y
+    CMP.L   D5, D3             ; Check if bottom-left corner X is to the right of enemy left side
+    BGE     CHECK_BOTTOM_RIGHT  ; If not, check bottom-right corner
+    CMP.L   D6, D4             ; Check if bottom-left corner Y is above enemy bottom
+    BGE     COLLISION_CHECK_DONE  ; If not, no collision occurred
+    BRA     COLLISION_OCCURRED
 
-COLLISION_CHECK_2:
-    CMP.L   PLAYER_X, D4       ; Check if player left side is to the right of enemy right side
-    BGE     COLLISION_CHECK_3  ; If not, move to next check
-    BRA     COLLISION_CHECK_DONE  ; If so, no collision occurred
+CHECK_BOTTOM_RIGHT:
+    ADD.L   #PLYR_W_INIT, D5      ; Bottom-right corner X
+    CMP.L   D5, D3             ; Check if bottom-right corner X is to the left of enemy right side
+    BGT     COLLISION_CHECK_DONE  ; If not, no collision occurred
+    CMP.L   D6, D4             ; Check if bottom-right corner Y is above enemy bottom
+    BGE     COLLISION_OCCURRED  ; If not, no collision occurred
+    BRA     COLLISION_OCCURRED
 
-COLLISION_CHECK_3:
-    CMP.L   PLAYER_Y, D3       ; Check if player top is below enemy bottom
-    BGE     COLLISION_CHECK_DONE  ; If not, collision occurred
-    MOVE.L  #00, PLAYER_SCORE    ; Set player score to 0
+    ; Check if any of the enemy's corners are within the player's boundaries
+    MOVE.L  ENEMY2_X,    D5      ; Top-left corner X
+    MOVE.L  ENEMY2_Y,    D6      ; Top-left corner Y
+    CMP.L   D5, D1             ; Check if top-left corner X is to the right of player left side
+    BGE     CHECK_BOTTOM_LEFT2  ; If not, check bottom-left corner
+    CMP.L   D6, D2             ; Check if top-left corner Y is below player top
+    BGE COLLISION_CHECK_DONE ; If not, no collision occurred
+    BRA COLLISION_OCCURRED
+
+CHECK_BOTTOM_LEFT2:
+    MOVE.L ENEMY2_X, D5 ; Bottom-left corner X
+    ADD.L #ENMY2_H_INIT, D6 ; Bottom-left corner Y
+    CMP.L D5, D1 ; Check if bottom-left corner X is to the right of player left side
+    BGE CHECK_BOTTOM_RIGHT2 ; If not, check bottom-right corner
+    CMP.L D6, D2 ; Check if bottom-left corner Y is above player bottom
+    BGE COLLISION_CHECK_DONE ; If not, no collision occurred
+    BRA COLLISION_OCCURRED
+
+CHECK_BOTTOM_RIGHT2:
+    ADD.L #ENMY2_W_INIT, D5 ; Bottom-right corner X
+    CMP.L D5, D1 ; Check if bottom-right corner X is to the left of player right side
+    BGT COLLISION_CHECK_DONE ; If not, no collision occurred
+    CMP.L D6, D2 ; Check if bottom-right corner Y is above player bottom
+    BGE COLLISION_OCCURRED ; If not, no collision occurred
+    BRA COLLISION_OCCURRED
 
 COLLISION_CHECK_DONE:
     ADD.L #POINTS, PLAYER_SCORE
-    RTS
+    RTS ; Return if no collision occurred
+
+COLLISION_OCCURRED:
+    MOVE.L  #00, PLAYER_SCORE    ; Set player score to 0
+    RTS 
 *-----------------------------------------------------------
 * Subroutine    : EXIT
 * Description   : Exit message and End Game
@@ -778,6 +840,8 @@ EXIT_MSG        DC.B    'Exiting....', 0    ; Exit Message
 *-----------------------------------------------------------
 WHITE           EQU     $00FFFFFF
 RED             EQU     $000000FF
+BLUE            EQU     $00FF0000
+GREEN           EQU     $0000FF00
 
 *-----------------------------------------------------------
 * Section       : Screen Size

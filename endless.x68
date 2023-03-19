@@ -31,6 +31,7 @@ PLYR_H_INIT EQU         20          ; Players initial Height
 
 PLYR_DFLT_V EQU         00          ; Default Player Velocity
 PLYR_JUMP_V EQU        -15          ; Player Jump Velocity
+PLYR_JUMPD_V EQU        15          ; Downwards Jump Velocity
 PLYR_DFLT_G EQU         01          ; Player Default Gravity
 
 GND_TRUE    EQU         01          ; Player on Ground True
@@ -40,8 +41,15 @@ RUN_INDEX   EQU         00          ; Player Run Sound Index
 JMP_INDEX   EQU         01          ; Player Jump Sound Index  
 OPPS_INDEX  EQU         02          ; Player Opps Sound Index
 
-ENMY_W_INIT EQU         20          ; Enemy initial Width
-ENMY_H_INIT EQU         20          ; Enemy initial Height
+ENMY1_W_INIT EQU         20          ; Enemy initial Width
+ENMY1_H_INIT EQU         20          ; Enemy initial Height
+
+ENMY2_W_INIT EQU         20          ; Enemy initial Width
+ENMY2_H_INIT EQU         20          ; Enemy initial Height
+
+ENMY3_W_INIT EQU         20          ; Enemy initial Width
+ENMY3_H_INIT EQU         20          ; Enemy initial Height
+
 
 *-----------------------------------------------------------
 * Section       : Game Stats
@@ -56,6 +64,7 @@ POINTS      EQU         01          ; Points added
 *-----------------------------------------------------------
 SPACEBAR    EQU         $20         ; Spacebar ASCII Keycode
 ESCAPE      EQU         $1B         ; Escape ASCII Keycode
+DOWN        EQU         $28         ; Down ASCII Keycode
 
 *-----------------------------------------------------------
 * Subroutine    : Initialise
@@ -114,6 +123,27 @@ INITIALISE:
     MOVE.W  SCREEN_H,   D1          ; Place Screen width in D1
     DIVU    #02,        D1          ; divide by 2 for center on Y Axis
     MOVE.L  D1,         ENEMY_Y     ; Enemy Y Position
+    
+    ; Initial Position for Enemy2
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
+    MOVE.L  D1,         ENEMY2_X     ; Enemy X Position
+
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    MOVE.W  SCREEN_H,   D1          ; Place Screen width in D1
+    DIVU    #03,        D1          ; divide by 3 for center on Y Axis
+    MOVE.L  D1,         ENEMY2_Y     ; Enemy Y Position
+    
+     ; Initial Position for Enemy3
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
+    MOVE.L  D1,         ENEMY3_X     ; Enemy X Position
+
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    MOVE.W  SCREEN_H,   D1          ; Place Screen width in D1
+    DIVU    #04,        D1          ; divide by 3 for center on Y Axis
+    MOVE.L  D1,         ENEMY3_Y    ; Enemy Y Position
+
 
     ; Enable the screen back buffer(see easy 68k help)
 	MOVE.B  #TC_DBL_BUF,D0          ; 92 Enables Double Buffer
@@ -185,6 +215,9 @@ PROCESS_INPUT:
     CMP.L   #SPACEBAR,  CURRENT_KEY ; Is Current Key Spacebar
     BEQ     JUMP                    ; Jump
     BRA     IDLE                    ; Or Idle
+    CMP.L   #DOWN,      CURRENT_KEY ; Is Current Key Down Arrow
+    BEQ     JUMP_DOWN               ; Jump Down
+    BRA     IDLE                    ; Or Idle
     RTS                             ; Return to subroutine
 
 *-----------------------------------------------------------
@@ -208,6 +241,24 @@ UPDATE:
     CMP.L   #00,        D1
     BLE     RESET_ENEMY_POSITION    ; Reset Enemy if off Screen
     BRA     MOVE_ENEMY              ; Move the Enemy
+    
+    ; Move the Enemy 2
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    CLR.L   D1                      ; Clear the contents of D0
+    MOVE.L  ENEMY2_X,    D1          ; Move the Enemy X Position to D0
+    CMP.L   #00,        D1
+    BLE     RESET_ENEMY_POSITION    ; Reset Enemy if off Screen
+    BRA     MOVE_ENEMY              ; Move the Enemy
+    
+     ; Move the Enemy 3
+    CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
+    CLR.L   D1                      ; Clear the contents of D0
+    MOVE.L  ENEMY3_X,    D1          ; Move the Enemy X Position to D0
+    CMP.L   #00,        D1
+    BLE     RESET_ENEMY_POSITION    ; Reset Enemy if off Screen
+    BRA     MOVE_ENEMY              ; Move the Enemy
+
+
 
     RTS                             ; Return to subroutine  
 
@@ -217,6 +268,10 @@ UPDATE:
 *-----------------------------------------------------------
 MOVE_ENEMY:
     SUB.L   #05,        ENEMY_X     ; Move enemy by X Value
+    SUB.L   #05,        ENEMY2_X     ; Move enemy by X Value
+    SUB.L   #05,        ENEMY3_X     ; Move enemy by X Value
+
+
     RTS
 
 *-----------------------------------------------------------
@@ -227,7 +282,12 @@ RESET_ENEMY_POSITION:
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
     MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
     MOVE.L  D1,         ENEMY_X     ; Enemy X Position
+    MOVE.L  D1,         ENEMY2_X     ; Enemy X Position
+    MOVE.L  D1,         ENEMY3_X     ; Enemy X Position
+
+
     RTS
+    
 
 *-----------------------------------------------------------
 * Subroutine    : Draw
@@ -246,6 +306,9 @@ DRAW:
     BSR     DRAW_PLYR_DATA          ; Draw Draw Score, HUD, Player X and Y
     BSR     DRAW_PLAYER             ; Draw Player
     BSR     DRAW_ENEMY              ; Draw Enemy
+    BSR     DRAW_ENEMY2             ; Draw Enemy 2
+    BSR     DRAW_ENEMY3             ; Draw Enemy 3
+
     RTS                             ; Return to subroutine
 
 *-----------------------------------------------------------
@@ -446,6 +509,22 @@ PERFORM_JUMP:
     RTS                             ; Return to subroutine
 JUMP_DONE:
     RTS                             ; Return to subroutine
+    
+*-----------------------------------------------------------
+* Subroutine    : Jump Down
+* Description   : Perform a Jump Down
+*-----------------------------------------------------------
+JUMP_DOWN:
+    CMP.L   #GND_TRUE,PLYR_ON_GND   ; Player is on the Ground ?
+    BEQ     PERFORM_JUMP_DOWN       ; Do Jump Down
+    BRA     JUMP_DONE_DOWN          ;
+PERFORM_JUMP_DOWN:
+    BSR     PLAY_JUMP               ; Play jump sound
+    MOVE.L  #PLYR_JUMPD_V,PLYR_VELOCITY ; Set the players velocity to true
+    RTS                             ; Return to subroutine
+JUMP_DONE_DOWN:
+    RTS                             ; Return to subroutine
+
 
 *-----------------------------------------------------------
 * Subroutine    : Idle
@@ -536,9 +615,56 @@ DRAW_ENEMY:
     MOVE.L  ENEMY_X,    D1          ; X
     MOVE.L  ENEMY_Y,    D2          ; Y
     MOVE.L  ENEMY_X,    D3
-    ADD.L   #ENMY_W_INIT,   D3      ; Width
+    ADD.L   #ENMY1_W_INIT,   D3      ; Width
     MOVE.L  ENEMY_Y,    D4 
-    ADD.L   #ENMY_H_INIT,   D4      ; Height
+    ADD.L   #ENMY1_H_INIT,   D4      ; Height
+    
+    ; Draw Enemy    
+    MOVE.B  #87,        D0          ; Draw Enemy
+    TRAP    #15                     ; Trap (Perform action)
+    RTS                             ; Return to subroutine
+
+*-----------------------------------------------------------
+* Subroutine    : Draw Enemy 2
+* Description   : Draw Enemy Square
+*-----------------------------------------------------------
+DRAW_ENEMY2:
+    ; Set Pixel Colors
+    MOVE.L  #RED,       D1          ; Set Background color
+    MOVE.B  #80,        D0          ; Task for Background Color
+    TRAP    #15                     ; Trap (Perform action)
+
+    ; Set X, Y, Width and Height
+    MOVE.L  ENEMY2_X,    D1          ; X
+    MOVE.L  ENEMY2_Y,    D2          ; Y
+    MOVE.L  ENEMY2_X,    D3
+    ADD.L   #ENMY2_W_INIT,   D3      ; Width
+    MOVE.L  ENEMY2_Y,    D4 
+    ADD.L   #ENMY2_H_INIT,   D4      ; Height
+    
+    ; Draw Enemy    
+    MOVE.B  #87,        D0          ; Draw Enemy
+    TRAP    #15                     ; Trap (Perform action)
+    RTS                             ; Return to subroutine
+
+
+*-----------------------------------------------------------
+* Subroutine    : Draw Enemy 3
+* Description   : Draw Enemy Square
+*-----------------------------------------------------------
+DRAW_ENEMY3:
+    ; Set Pixel Colors
+    MOVE.L  #RED,       D1          ; Set Background color
+    MOVE.B  #80,        D0          ; Task for Background Color
+    TRAP    #15                     ; Trap (Perform action)
+
+    ; Set X, Y, Width and Height
+    MOVE.L  ENEMY3_X,    D1          ; X
+    MOVE.L  ENEMY3_Y,    D2          ; Y
+    MOVE.L  ENEMY3_X,    D3
+    ADD.L   #ENMY3_W_INIT,   D3      ; Width
+    MOVE.L  ENEMY3_Y,    D4 
+    ADD.L   #ENMY3_H_INIT,   D4      ; Height
     
     ; Draw Enemy    
     MOVE.B  #87,        D0          ; Draw Enemy
@@ -561,7 +687,7 @@ CHECK_COLLISIONS:
 PLAYER_X_LTE_TO_ENEMY_X_PLUS_W:
     MOVE.L  PLAYER_X,   D1          ; Move Player X to D1
     MOVE.L  ENEMY_X,    D2          ; Move Enemy X to D2
-    ADD.L   ENMY_W_INIT,D2          ; Set Enemy width X + Width
+    ADD.L   ENMY1_W_INIT,D2          ; Set Enemy width X + Width
     CMP.L   D1,         D2          ; Do the Overlap ?
     BLE     PLAYER_X_PLUS_W_LTE_TO_ENEMY_X  ; Less than or Equal ?
     BRA     COLLISION_CHECK_DONE    ; If not no collision
@@ -574,7 +700,7 @@ PLAYER_X_PLUS_W_LTE_TO_ENEMY_X:     ; Check player is not
 PLAYER_Y_LTE_TO_ENEMY_Y_PLUS_H:     
     MOVE.L  PLAYER_Y,   D1          ; Move Player Y to D1
     MOVE.L  ENEMY_Y,    D2          ; Move Enemy Y to D2
-    ADD.L   ENMY_H_INIT,D2          ; Set Enemy Height to D2
+    ADD.L   ENMY1_H_INIT,D2          ; Set Enemy Height to D2
     CMP.L   D1,         D2          ; Do they Overlap ?
     BLE     PLAYER_Y_PLUS_H_LTE_TO_ENEMY_Y  ; Less than or Equal
     BRA     COLLISION_CHECK_DONE    ; If not no collision 
@@ -667,6 +793,14 @@ PLYR_ON_GND     DS.L    01  ; Reserve Space for Player on Ground
 ENEMY_X         DS.L    01  ; Reserve Space for Enemy X Position
 ENEMY_Y         DS.L    01  ; Reserve Space for Enemy Y Position
 
+ENEMY2_X         DS.L    01  ; Reserve Space for Enemy2 X Position
+ENEMY2_Y         DS.L    01  ; Reserve Space for Enemy2 Y Position
+
+ENEMY3_X         DS.L    01  ; Reserve Space for Enemy3 X Position
+ENEMY3_Y         DS.L    01  ; Reserve Space for Enemy3 Y Position
+
+
+
 *-----------------------------------------------------------
 * Section       : Sounds
 * Description   : Sound files, which are then loaded and given
@@ -679,6 +813,8 @@ RUN_WAV         DC.B    'run.wav',0         ; Run Sound
 OPPS_WAV        DC.B    'opps.wav',0        ; Collision Opps
 
     END    START        ; last line of source
+
+
 
 
 

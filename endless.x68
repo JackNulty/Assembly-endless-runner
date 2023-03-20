@@ -90,8 +90,8 @@ INITIALISE:
 
     ; Place the Player at the center of the screen
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
-    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
-    DIVU    #03,        D1          ; divide by 2 for center on X Axis
+    MOVE.L  #200,   D1          ; Place Screen width in D1
+    ;DIVU    #03,        D1          ; divide by 2 for center on X Axis
     MOVE.L  D1,         PLAYER_X    ; Players X Position
 
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
@@ -120,7 +120,7 @@ INITIALISE:
 
     ; Initial Position for Enemy
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
-    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
+    MOVE.L  #600,   D1          ; Place Screen width in D1
     MOVE.L  D1,         ENEMY_X     ; Enemy X Position
 
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
@@ -135,19 +135,15 @@ INITIALISE:
 
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
     MOVE.L  #400,   D1          ; Place Screen width in D1
-    ;SUB.L   #25,        D1
-    ;DIVU    #03,        D1          ; divide by 3 for center on Y Axis
     MOVE.L  D1,         ENEMY2_Y     ; Enemy Y Position
     
      ; Initial Position for Enemy3
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
-    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
+    MOVE.L  #600,   D1          ; Place Screen width in D1
     MOVE.L  D1,         ENEMY3_X     ; Enemy X Position
 
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
-    MOVE.W  SCREEN_H,   D1          ; Place Screen width in D1
-    ;SUB.L   #25,        D1
-    DIVU    #04,        D1          ; divide by 3 for center on Y Axis
+    MOVE.L  #250,   D1          ; Place Screen width in D1
     MOVE.L  D1,         ENEMY3_Y    ; Enemy Y Position
 
 
@@ -183,6 +179,8 @@ GAMELOOP:
     BSR     UPDATE_ENEMY3
     BSR     IS_PLAYER_ON_GND        ; Check if player is on ground
     BSR     CHECK_COLLISIONS        ; Check for Collisions
+    BSR     CHECK_COLLISIONS2
+    BSR     CHECK_COLLISIONS3
     BSR     DRAW                    ; Draw the Scene
     
     MOVE.L  (SP)+,D7                ; Move stack to D7
@@ -310,19 +308,19 @@ MOVE_ENEMY3:
 *-----------------------------------------------------------
 RESET_ENEMY_POSITION:
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
-    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
+    MOVE.L  #600,   D1          ; Place Screen width in D1
     MOVE.L  D1,         ENEMY_X     ; Enemy X Position
     RTS
 
 RESET_ENEMY2_POSITION:
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
-    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
+    MOVE.L  #600,   D1          ; Place Screen width in D1
     MOVE.L  D1,         ENEMY2_X     ; Enemy X Position
     RTS
     
 RESET_ENEMY3_POSITION:
     CLR.L   D1                      ; Clear contents of D1 (XOR is faster)
-    MOVE.W  SCREEN_W,   D1          ; Place Screen width in D1
+    MOVE.L  #600,   D1          ; Place Screen width in D1
     MOVE.L  D1,         ENEMY3_X     ; Enemy X Position
     RTS
 
@@ -726,77 +724,133 @@ DRAW_ENEMY3:
 
 *-----------------------------------------------------------
 * Subroutine    : Collision Check
-*-----------------------------------------------------------    
+*-----------------------------------------------------------   
 CHECK_COLLISIONS:
-    CLR.L   D0          ; Clear D0 (used to check if collision occurred)
-    MOVE.L  PLAYER_X,   D1      ; Get player X position
-    MOVE.L  PLAYER_Y,   D2      ; Get player Y position
-    ADD.L   PLYR_W_INIT,     D1      ; Add player width to X position
-    ADD.L   PLYR_H_INIT,     D2      ; Add player height to Y position
-    MOVE.L  ENEMY2_X,    D3      ; Get enemy X position
-    MOVE.L  ENEMY2_Y,    D4      ; Get enemy Y position
-    ADD.L   ENMY2_W_INIT,     D3      ; Add enemy width to X position
-    ADD.L   ENMY2_H_INIT,     D4      ; Add enemy height to Y position
+    CLR.L   D1                      ; Clear D1
+    CLR.L   D2                      ; Clear D2
+PLAYER_X_LTE_TO_ENEMY_X_PLUS_W:
+    MOVE.L  PLAYER_X,   D1          ; Move Player X to D1
+    MOVE.L  ENEMY_X,    D2          ; Move Enemy X to D2
+    ADD.L   ENMY1_W_INIT,D2          ; Set Enemy width X + Width
+    CMP.L   D1,         D2          ; Do the Overlap ?
+    BLE     PLAYER_X_PLUS_W_LTE_TO_ENEMY_X  ; Less than or Equal ?
+    BRA     COLLISION_CHECK_DONE    ; If not no collision
+PLAYER_X_PLUS_W_LTE_TO_ENEMY_X:     ; Check player is not  
+    ADD.L   PLYR_W_INIT,D1          ; Move Player Width to D1
+    MOVE.L  ENEMY_X,    D2          ; Move Enemy X to D2
+    CMP.L   D2,         D1          ; Do they OverLap ?
+    BGE     PLAYER_Y_LTE_TO_ENEMY_Y_PLUS_H  ; Less than or Equal
+    BRA     COLLISION_CHECK_DONE    ; If not no collision   
+PLAYER_Y_LTE_TO_ENEMY_Y_PLUS_H:     
+    MOVE.L  PLAYER_Y,   D1          ; Move Player Y to D1
+    MOVE.L  ENEMY_Y,    D2          ; Move Enemy Y to D2
+    ADD.L   ENMY1_H_INIT,D2          ; Set Enemy Height to D2
+    CMP.L   D1,         D2          ; Do they Overlap ?
+    BLE     PLAYER_Y_PLUS_H_LTE_TO_ENEMY_Y  ; Less than or Equal
+    BRA     COLLISION_CHECK_DONE    ; If not no collision 
+PLAYER_Y_PLUS_H_LTE_TO_ENEMY_Y:     ; Less than or Equal ?
+    ADD.L   PLYR_H_INIT,D1          ; Add Player Height to D1
+    MOVE.L  ENEMY_Y,    D2          ; Move Enemy Height to D2  
+    CMP.L   D2,         D1          ; Do they OverLap ?
+    BGE     COLLISION               ; Collision !
+    BRA     COLLISION_CHECK_DONE    ; If not no collision
+COLLISION_CHECK_DONE:               ; No Collision Update points
+    ADD.L   #POINTS,    D1          ; Move points upgrade to D1
+    ADD.L   PLAYER_SCORE,D1         ; Add to current player score
+    MOVE.L  D1, PLAYER_SCORE        ; Update player score in memory
+    RTS                             ; Return to subroutine
 
-    ; Check if any of the player's corners are within the enemy's boundaries
-    MOVE.L  PLAYER_X,   D5      ; Top-left corner X
-    MOVE.L  PLAYER_Y,   D6      ; Top-left corner Y
-    CMP.L   D5, D3             ; Check if top-left corner X is to the right of enemy left side
-    BGE     CHECK_BOTTOM_LEFT   ; If not, check bottom-left corner
-    CMP.L   D6, D4             ; Check if top-left corner Y is below enemy top
-    BGE     COLLISION_CHECK_DONE  ; If not, no collision occurred
-    BRA     COLLISION_OCCURRED
+COLLISION:
+    BSR     PLAY_OPPS               ; Play Opps Wav
+    MOVE.L  #00, PLAYER_SCORE       ; Reset Player Score
+    RTS                             ; Return to subroutine 
+    
+*-----------------------------------------------------------
+* Subroutine    : Collision Check 
+*-----------------------------------------------------------   
+CHECK_COLLISIONS2:
+    CLR.L   D1                      ; Clear D1
+    CLR.L   D2                      ; Clear D2
+PLAYER_X_LTE_TO_ENEMY_X_PLUS_W2:
+    MOVE.L  PLAYER_X,   D1          ; Move Player X to D1
+    MOVE.L  ENEMY2_X,    D2          ; Move Enemy X to D2
+    ADD.L   ENMY2_W_INIT,D2          ; Set Enemy width X + Width
+    CMP.L   D1,         D2          ; Do the Overlap ?
+    BLE     PLAYER_X_PLUS_W_LTE_TO_ENEMY_X2  ; Less than or Equal ?
+    BRA     COLLISION_CHECK_DONE2    ; If not no collision
+PLAYER_X_PLUS_W_LTE_TO_ENEMY_X2:     ; Check player is not  
+    ADD.L   PLYR_W_INIT,D1          ; Move Player Width to D1
+    MOVE.L  ENEMY2_X,    D2          ; Move Enemy X to D2
+    CMP.L   D2,         D1          ; Do they OverLap ?
+    BGE     PLAYER_Y_LTE_TO_ENEMY_Y_PLUS_H2  ; Less than or Equal
+    BRA     COLLISION_CHECK_DONE2    ; If not no collision   
+PLAYER_Y_LTE_TO_ENEMY_Y_PLUS_H2:     
+    MOVE.L  PLAYER_Y,   D1          ; Move Player Y to D1
+    MOVE.L  ENEMY2_Y,    D2          ; Move Enemy Y to D2
+    ADD.L   ENMY2_H_INIT,D2          ; Set Enemy Height to D2
+    CMP.L   D2,         D1          ; Do they Overlap ?
+    BLE     PLAYER_Y_PLUS_H_LTE_TO_ENEMY_Y2  ; Less than or Equal
+    BRA     COLLISION_CHECK_DONE2    ; If not no collision 
+PLAYER_Y_PLUS_H_LTE_TO_ENEMY_Y2:     ; Less than or Equal ?
+    ADD.L   PLYR_H_INIT,D1          ; Add Player Height to D1
+    MOVE.L  ENEMY2_Y,    D2          ; Move Enemy Height to D2  
+    CMP.L   D1,         D2          ; Do they OverLap ?
+    BGE     COLLISION2               ; Collision !
+    BRA     COLLISION_CHECK_DONE2    ; If not no collision
+COLLISION_CHECK_DONE2:               ; No Collision Update points
+    ADD.L   #POINTS,    D1          ; Move points upgrade to D1
+    ADD.L   PLAYER_SCORE,D1         ; Add to current player score
+    MOVE.L  D1, PLAYER_SCORE        ; Update player score in memory
+    RTS                             ; Return to subroutine
 
-CHECK_BOTTOM_LEFT:
-    MOVE.L  PLAYER_X,   D5      ; Bottom-left corner X
-    ADD.L   #PLYR_H_INIT, D6      ; Bottom-left corner Y
-    CMP.L   D5, D3             ; Check if bottom-left corner X is to the right of enemy left side
-    BGE     CHECK_BOTTOM_RIGHT  ; If not, check bottom-right corner
-    CMP.L   D6, D4             ; Check if bottom-left corner Y is above enemy bottom
-    BGE     COLLISION_CHECK_DONE  ; If not, no collision occurred
-    BRA     COLLISION_OCCURRED
+COLLISION2:
+    BSR     PLAY_OPPS               ; Play Opps Wav
+    MOVE.L  #00, PLAYER_SCORE       ; Reset Player Score
+    RTS                             ; Return to subroutine 
 
-CHECK_BOTTOM_RIGHT:
-    ADD.L   #PLYR_W_INIT, D5      ; Bottom-right corner X
-    CMP.L   D5, D3             ; Check if bottom-right corner X is to the left of enemy right side
-    BGT     COLLISION_CHECK_DONE  ; If not, no collision occurred
-    CMP.L   D6, D4             ; Check if bottom-right corner Y is above enemy bottom
-    BGE     COLLISION_OCCURRED  ; If not, no collision occurred
-    BRA     COLLISION_OCCURRED
+*-----------------------------------------------------------
+* Subroutine    : Collision Check 
+*-----------------------------------------------------------   
+CHECK_COLLISIONS3:
+    CLR.L   D1                      ; Clear D1
+    CLR.L   D2                      ; Clear D2
+PLAYER_X_LTE_TO_ENEMY_X_PLUS_W3:
+    MOVE.L  PLAYER_X,   D1          ; Move Player X to D1
+    MOVE.L  ENEMY3_X,    D2          ; Move Enemy X to D2
+    ADD.L   ENMY3_W_INIT,D2          ; Set Enemy width X + Width
+    CMP.L   D1,         D2          ; Do the Overlap ?
+    BLE     PLAYER_X_PLUS_W_LTE_TO_ENEMY_X3  ; Less than or Equal ?
+    BRA     COLLISION_CHECK_DONE3    ; If not no collision
+PLAYER_X_PLUS_W_LTE_TO_ENEMY_X3:     ; Check player is not  
+    ADD.L   PLYR_W_INIT,D1          ; Move Player Width to D1
+    MOVE.L  ENEMY3_X,    D2          ; Move Enemy X to D2
+    CMP.L   D1,         D2          ; Do they OverLap ?
+    BGE     PLAYER_Y_LTE_TO_ENEMY_Y_PLUS_H3  ; Less than or Equal
+    BRA     COLLISION_CHECK_DONE3    ; If not no collision   
+PLAYER_Y_LTE_TO_ENEMY_Y_PLUS_H3:     
+    MOVE.L  PLAYER_Y,   D1          ; Move Player Y to D1
+    MOVE.L  ENEMY3_Y,    D2          ; Move Enemy Y to D2
+    ADD.L   ENMY3_H_INIT,D2          ; Set Enemy Height to D2
+    CMP.L   D2,         D1          ; Do they Overlap ?
+    BLE     PLAYER_Y_PLUS_H_LTE_TO_ENEMY_Y3  ; Less than or Equal
+    BRA     COLLISION_CHECK_DONE3    ; If not no collision 
+PLAYER_Y_PLUS_H_LTE_TO_ENEMY_Y3:     ; Less than or Equal ?
+    ADD.L   PLYR_H_INIT,D1          ; Add Player Height to D1
+    MOVE.L  ENEMY3_Y,    D2          ; Move Enemy Height to D2  
+    CMP.L   D1,         D2          ; Do they OverLap ?
+    BGE     COLLISION3               ; Collision !
+    BRA     COLLISION_CHECK_DONE3    ; If not no collision
+COLLISION_CHECK_DONE3:               ; No Collision Update points
+    ADD.L   #POINTS,    D1          ; Move points upgrade to D1
+    ADD.L   PLAYER_SCORE,D1         ; Add to current player score
+    MOVE.L  D1, PLAYER_SCORE        ; Update player score in memory
+    RTS                             ; Return to subroutine
 
-    ; Check if any of the enemy's corners are within the player's boundaries
-    MOVE.L  ENEMY2_X,    D5      ; Top-left corner X
-    MOVE.L  ENEMY2_Y,    D6      ; Top-left corner Y
-    CMP.L   D5, D1             ; Check if top-left corner X is to the right of player left side
-    BGE     CHECK_BOTTOM_LEFT2  ; If not, check bottom-left corner
-    CMP.L   D6, D2             ; Check if top-left corner Y is below player top
-    BGE COLLISION_CHECK_DONE ; If not, no collision occurred
-    BRA COLLISION_OCCURRED
+COLLISION3:
+    BSR     PLAY_OPPS               ; Play Opps Wav
+    MOVE.L  #00, PLAYER_SCORE       ; Reset Player Score
+    RTS                             ; Return to subroutine 
 
-CHECK_BOTTOM_LEFT2:
-    MOVE.L ENEMY2_X, D5 ; Bottom-left corner X
-    ADD.L #ENMY2_H_INIT, D6 ; Bottom-left corner Y
-    CMP.L D5, D1 ; Check if bottom-left corner X is to the right of player left side
-    BGE CHECK_BOTTOM_RIGHT2 ; If not, check bottom-right corner
-    CMP.L D6, D2 ; Check if bottom-left corner Y is above player bottom
-    BGE COLLISION_CHECK_DONE ; If not, no collision occurred
-    BRA COLLISION_OCCURRED
-
-CHECK_BOTTOM_RIGHT2:
-    ADD.L #ENMY2_W_INIT, D5 ; Bottom-right corner X
-    CMP.L D5, D1 ; Check if bottom-right corner X is to the left of player right side
-    BGT COLLISION_CHECK_DONE ; If not, no collision occurred
-    CMP.L D6, D2 ; Check if bottom-right corner Y is above player bottom
-    BGE COLLISION_OCCURRED ; If not, no collision occurred
-    BRA COLLISION_OCCURRED
-
-COLLISION_CHECK_DONE:
-    ADD.L #POINTS, PLAYER_SCORE
-    RTS ; Return if no collision occurred
-
-COLLISION_OCCURRED:
-    MOVE.L  #00, PLAYER_SCORE    ; Set player score to 0
-    RTS 
 *-----------------------------------------------------------
 * Subroutine    : EXIT
 * Description   : Exit message and End Game
@@ -891,6 +945,7 @@ RUN_WAV         DC.B    'run.wav',0         ; Run Sound
 OPPS_WAV        DC.B    'opps.wav',0        ; Collision Opps
 
     END    START        ; last line of source
+
 
 
 
